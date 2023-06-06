@@ -8,8 +8,10 @@ import numpy as np
 
 face_cascade = cv2.CascadeClassifier('./haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('./haarcascade_eye.xml')
+mouth_cascade = cv2.CascadeClassifier('./mouth.xml')
 
 model = load_model(r"C:\Users\Saksham Hans\Desktop\Driver Drowsiness Project\models\model.h5")
+model_yawn = load_model(r"C:\Users\Saksham Hans\Desktop\Driver Drowsiness Project\models\model_yawn.h5")
 
 #mixer.init()
 #sound = mixer.sound(r'C:\Users\Saksham Hans\PycharmProjects\Driver Drowsiness\alarm.wav')
@@ -20,7 +22,8 @@ while True:
     height,width = frame.shape[0:2]
     gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray,scaleFactor=1.2,minNeighbors=5)
-    eyes = eye_cascade.detectMultiScale(gray,scaleFactor=1.1,minNeighbors=2)
+    eyes = eye_cascade.detectMultiScale(gray,scaleFactor=1.1,minNeighbors=5)
+    mouths = mouth_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=50)
 
     cv2.rectangle(frame,(0,height-50),(200,height),(0,0,0),thickness=cv2.FILLED)
     for (x,y,w,h) in faces:
@@ -37,7 +40,7 @@ while True:
 
         #model prediction
         prediction = model.predict(eye)
-        if prediction[0][0] > 0.50:
+        if prediction[0][0] > 0.30:
             cv2.putText(frame,'Closed',(10,height-20),fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL,fontScale=1,color=(255,255,255),thickness=1,lineType=cv2.LINE_AA)
             cv2.putText(frame, 'Score:' + str(score), (100, height - 20), fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL, fontScale=1,
                         color=(255, 255, 255), thickness=1)
@@ -58,6 +61,26 @@ while True:
                 score =0
 
         #print(prediction)
+
+    for (mx, my, mw, mh) in mouths:
+        cv2.rectangle(frame, pt1=(mx, my), pt2=(mx + mh, my + mw), color=(0, 0, 255), thickness=3)
+
+        # preprocessing steps
+        mouth = frame[my:my + mw, mx:mx + mh]
+        mouth = cv2.resize(mouth, (80, 80))
+        mouth = mouth / 255
+        mouth = mouth.reshape(80, 80, 3)
+        mouth = np.expand_dims(mouth, axis=0)
+
+        # model prediction
+        prediction1 = model_yawn.predict(mouth)
+        if prediction1[0][0] > 0.4:
+            cv2.putText(frame, 'Not Yawning', (400, height - 20), fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL, fontScale=1,
+                        color=(255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
+        elif prediction1[0][1] > 0.6:
+            cv2.putText(frame, 'Yawn Detected', (400, height - 20), fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                        fontScale=1,
+                        color=(255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
 
     cv2.imshow('frame',frame)
     if cv2.waitKey(33) & 0xFF == ord('q'):
